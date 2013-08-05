@@ -51,6 +51,35 @@ class PHPExcel_Worksheet_RowDimension extends PHPExcel_Worksheet_Dimension
     private $zeroHeight = false;
 
     /**
+     * Visible?
+     *
+     * @var bool
+     */
+    private $_visible		= true;
+
+    /**
+     * Outline level
+     *
+     * @var int
+     */
+    private $_outlineLevel	= 0;
+
+    /**
+     * Collapsed
+     *
+     * @var bool
+     */
+    private $_collapsed		= false;
+
+    /**
+     * Index to cellXf. Null value means row has no explicit cellXf format.
+     *
+     * @var int|null
+     */
+    private $_xfIndex;
+
+    private $_x14ac =null;
+    /**
      * Create a new PHPExcel_Worksheet_RowDimension
      *
      * @param int $pIndex Numeric row index
@@ -62,6 +91,14 @@ class PHPExcel_Worksheet_RowDimension extends PHPExcel_Worksheet_Dimension
 
         // set dimension as unformatted by default
         parent::__construct(null);
+    }
+
+    public function setX14ac($x14ac){
+      $this->_x14ac = $x14ac;
+    }
+
+    public function getX14ac(){
+      return $this->_x14ac;
     }
 
     /**

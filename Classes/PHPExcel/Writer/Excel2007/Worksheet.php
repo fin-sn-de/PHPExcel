@@ -35,37 +35,43 @@
  */
 class PHPExcel_Writer_Excel2007_Worksheet extends PHPExcel_Writer_Excel2007_WriterPart
 {
-    /**
-     * Write worksheet to XML format
-     *
-     * @param    PHPExcel_Worksheet        $pSheet
-     * @param    string[]                $pStringTable
-     * @param    boolean                    $includeCharts    Flag indicating if we should write charts
-     * @return    string                    XML Output
-     * @throws    PHPExcel_Writer_Exception
-     */
-    public function writeWorksheet($pSheet = null, $pStringTable = null, $includeCharts = false)
-    {
-        if (!is_null($pSheet)) {
-            // Create XML writer
-            $objWriter = null;
-            if ($this->getParentWriter()->getUseDiskCaching()) {
-                $objWriter = new PHPExcel_Shared_XMLWriter(PHPExcel_Shared_XMLWriter::STORAGE_DISK, $this->getParentWriter()->getDiskCachingDirectory());
-            } else {
-                $objWriter = new PHPExcel_Shared_XMLWriter(PHPExcel_Shared_XMLWriter::STORAGE_MEMORY);
-            }
+	/**
+	 * Write worksheet to XML format
+	 *
+	 * @param	PHPExcel_Worksheet		$pSheet
+	 * @param	string[]				$pStringTable
+	 * @param	boolean					$includeCharts	Flag indicating if we should write charts
+	 * @return	string					XML Output
+	 * @throws	PHPExcel_Writer_Exception
+	 */
+	public function writeWorksheet($pSheet = null, $pStringTable = null, $includeCharts = FALSE,$includePivotTable = FALSE)
+	{
+		if (!is_null($pSheet)) {
+			// Create XML writer
+			$objWriter = null;
+			if ($this->getParentWriter()->getUseDiskCaching()) {
+				$objWriter = new PHPExcel_Shared_XMLWriter(PHPExcel_Shared_XMLWriter::STORAGE_DISK, $this->getParentWriter()->getDiskCachingDirectory());
+			} else {
+				$objWriter = new PHPExcel_Shared_XMLWriter(PHPExcel_Shared_XMLWriter::STORAGE_MEMORY);
+			}
 
             // XML header
             $objWriter->startDocument('1.0', 'UTF-8', 'yes');
 
-            // Worksheet
-            $objWriter->startElement('worksheet');
-            $objWriter->writeAttribute('xml:space', 'preserve');
-            $objWriter->writeAttribute('xmlns', 'http://schemas.openxmlformats.org/spreadsheetml/2006/main');
-            $objWriter->writeAttribute('xmlns:r', 'http://schemas.openxmlformats.org/officeDocument/2006/relationships');
-
-                // sheetPr
-                $this->writeSheetPr($objWriter, $pSheet);
+			// Worksheet
+			$objWriter->startElement('worksheet');
+			if(!$includePivotTable){
+			    $objWriter->writeAttribute('xml:space', 'preserve');
+			}
+			$objWriter->writeAttribute('xmlns', 'http://schemas.openxmlformats.org/spreadsheetml/2006/main');
+			$objWriter->writeAttribute('xmlns:r', 'http://schemas.openxmlformats.org/officeDocument/2006/relationships');
+			if($includePivotTable) {
+                $objWriter->writeAttribute('xmlns:mc', 'http://schemas.openxmlformats.org/markup-compatibility/2006');
+                $objWriter->writeAttribute('mc:Ignorable', 'x14ac');
+                $objWriter->writeAttribute('xmlns:x14ac', 'http://schemas.microsoft.com/office/spreadsheetml/2009/9/ac');
+            }
+				// sheetPr
+				$this->writeSheetPr($objWriter, $pSheet);
 
                 // Dimension
                 $this->writeDimension($objWriter, $pSheet);
@@ -358,6 +364,10 @@ class PHPExcel_Writer_Excel2007_Worksheet extends PHPExcel_Writer_Excel2007_Writ
             }
         }
         $objWriter->writeAttribute('outlineLevelCol', (int)$outlineLevelCol);
+
+      if($pSheet->getDefaultRowDimension()->getX14ac()){
+        $objWriter->writeAttribute('x14ac:dyDescent',	$pSheet->getDefaultRowDimension()->getX14ac());
+      }
 
         $objWriter->endElement();
     }
@@ -995,6 +1005,9 @@ class PHPExcel_Writer_Excel2007_Worksheet extends PHPExcel_Writer_Excel2007_Writ
                     $objWriter->startElement('row');
                     $objWriter->writeAttribute('r', $currentRow);
                     $objWriter->writeAttribute('spans', '1:' . $colCount);
+            if($rowDimension->getX14ac()){
+              $objWriter->writeAttribute('x14ac:dyDescent',	$rowDimension->getX14ac());
+            }
 
                     // Row dimensions
                     if ($rowDimension->getRowHeight() >= 0) {

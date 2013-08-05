@@ -264,7 +264,7 @@ class PHPExcel_Writer_Excel2007 extends PHPExcel_Writer_Abstract implements PHPE
                     $objZip->addFromString($tmpRootPath.'_rels/'.basename($tmpRibbonTarget).'.rels', $this->getWriterPart('RelsRibbonObjects')->writeRibbonRelationships($this->spreadSheet));
                 }
             }
-            
+
             // Add relationships to ZIP file
             $objZip->addFromString('_rels/.rels', $this->getWriterPart('Rels')->writeRelationships($this->spreadSheet));
             $objZip->addFromString('xl/_rels/workbook.xml.rels', $this->getWriterPart('Rels')->writeWorkbookRelationships($this->spreadSheet));
@@ -299,6 +299,53 @@ class PHPExcel_Writer_Excel2007 extends PHPExcel_Writer_Abstract implements PHPE
                         foreach ($charts as $chart) {
                             $objZip->addFromString('xl/charts/chart' . ($chartCount + 1) . '.xml', $this->getWriterPart('Chart')->writeChart($chart, $this->preCalculateFormulas));
                             $chartCount++;
+                        }
+                    }
+                }
+                // Add pivot table
+                if ($this->_includePivotTable) {
+                    $pivotTables = $this->spreadSheet->getSheet($i)->getPivotTableCollection();
+                    if (count($pivotTables) > 0) {
+                        foreach($pivotTables as $pivotTable) {
+                            $objZip->addFromString(
+                                PHPExcel_PivotTable::normalizePath('xl/worksheets/' . $pivotTable->getTarget()),
+                                $pivotTable->getXmlData()
+                            );
+
+                            // Add pivot table relationships
+                            $objZip->addFromString(
+                                'xl/pivotTables/_rels/'.$pivotTable->getName().'.rels',
+                                $this->getWriterPart('Rels')->writePivotTableRelationships($this->spreadSheet->getSheet($i))
+                            );
+
+                            $pivotCacheDefinitions = $pivotTable->getPivotCacheDefinitionCollection();
+                            if (count($pivotCacheDefinitions) > 0) {
+                                foreach($pivotCacheDefinitions as $pivotCacheDefinition) {
+                                    $objZip->addFromString(
+                                        PHPExcel_PivotTable::normalizePath('xl/worksheets/' . $pivotCacheDefinition->getTarget()),
+                                        $pivotCacheDefinition->getXmlData()
+                                    );
+                                }
+
+                                // Add pivot cache relationships
+                                $objZip->addFromString(
+                                    'xl/pivotCache/_rels/'.$pivotCacheDefinition->getName().'.rels',
+                                    $this->getWriterPart('Rels')->writePivotCacheRelationships($this->spreadSheet->getSheet($i))
+                                );
+
+                                $pivotCacheRecordsCollection = $pivotCacheDefinition->getPivotCacheRecordsCollection();
+                                if (count($pivotCacheRecordsCollection) > 0) {
+                                    foreach($pivotCacheRecordsCollection as $pivotCacheRecords) {
+//                   var_dump($pivotCacheRecords->getName());
+//                   var_dump( $pivotCacheRecords->getXmlData());
+//                   var_dump(PHPExcel_PivotTable::normalizePath('/xl/worksheets/' . dirname($pivotCacheDefinition->getTarget())."/". $pivotCacheRecords->getTarget()));
+                                        $objZip->addFromString(
+                                            PHPExcel_PivotTable::normalizePath('xl/worksheets/' . dirname($pivotCacheDefinition->getTarget())."/". $pivotCacheRecords->getTarget()),
+                                            $pivotCacheRecords->getXmlData()
+                                        );
+                                    }
+                                }
+                            }
                         }
                     }
                 }

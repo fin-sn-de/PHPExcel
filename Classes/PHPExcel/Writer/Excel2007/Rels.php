@@ -149,17 +149,39 @@ class PHPExcel_Writer_Excel2007_Rels extends PHPExcel_Writer_Excel2007_WriterPar
             'sharedStrings.xml'
         );
 
-        // Relationships with sheets
-        $sheetCount = $pPHPExcel->getSheetCount();
-        for ($i = 0; $i < $sheetCount; ++$i) {
-            $this->writeRelationship(
-                $objWriter,
-                ($i + 1 + 3),
-                'http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet',
-                'worksheets/sheet' . ($i + 1) . '.xml'
-            );
+			// Relationships with sheets
+			$relsPivotCache = array();
+			$sheetCount = $pPHPExcel->getSheetCount();
+			for ($i = 0; $i < $sheetCount; ++$i) {
+				$this->writeRelationship(
+					$objWriter,
+					($i + 1 + 3),
+					'http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet',
+					'worksheets/sheet' . ($i + 1) . '.xml'
+				);
+			$pivotTables =  $pPHPExcel->getSheet($i)->getPivotTableCollection();
+        if(count($pivotTables)>0){
+          foreach($pivotTables as $pivotTable){
+            $pivotCaches = $pivotTable->getPivotCacheDefinitionCollection();
+            foreach($pivotCaches as $pivotCache){
+              $relsPivotCache[$pivotCache->getName()] = $pivotCache->getName();
+            }
+          }
         }
-        // Relationships for vbaProject if needed
+
+			}
+
+      // Relastionships with pivotTables
+      $i=$i+4;
+      if(count($relsPivotCache)> 0){
+        foreach($relsPivotCache as $key => $value){
+          $this->writeRelationship(
+  					$objWriter,
+  					($i++),
+  					'http://schemas.openxmlformats.org/officeDocument/2006/relationships/pivotCacheDefinition',
+  					'pivotCache/'.$value
+  				);
+        }}// Relationships for vbaProject if needed
         // id : just after the last sheet
         if ($pPHPExcel->hasMacros()) {
             $this->writeRelationShip(
@@ -176,28 +198,29 @@ class PHPExcel_Writer_Excel2007_Rels extends PHPExcel_Writer_Excel2007_WriterPar
         return $objWriter->getData();
     }
 
-    /**
-     * Write worksheet relationships to XML format
-     *
-     * Numbering is as follows:
-     *     rId1                 - Drawings
-     *  rId_hyperlink_x     - Hyperlinks
-     *
-     * @param     PHPExcel_Worksheet    $pWorksheet
-     * @param     int                    $pWorksheetId
-     * @param    boolean                $includeCharts    Flag indicating if we should write charts
-     * @return     string                 XML Output
-     * @throws     PHPExcel_Writer_Exception
-     */
-    public function writeWorksheetRelationships(PHPExcel_Worksheet $pWorksheet = null, $pWorksheetId = 1, $includeCharts = false)
-    {
-        // Create XML writer
-        $objWriter = null;
-        if ($this->getParentWriter()->getUseDiskCaching()) {
-            $objWriter = new PHPExcel_Shared_XMLWriter(PHPExcel_Shared_XMLWriter::STORAGE_DISK, $this->getParentWriter()->getDiskCachingDirectory());
-        } else {
-            $objWriter = new PHPExcel_Shared_XMLWriter(PHPExcel_Shared_XMLWriter::STORAGE_MEMORY);
-        }
+	/**
+	 * Write worksheet relationships to XML format
+	 *
+	 * Numbering is as follows:
+	 * 	rId1 				- Drawings
+	 *  rId_hyperlink_x 	- Hyperlinks
+	 *
+	 * @param 	PHPExcel_Worksheet	$pWorksheet
+	 * @param 	int					$pWorksheetId
+	 * @param	boolean				$includeCharts	Flag indicating if we should write charts
+     * @param	boolean				$includePivotTables	Flag indicating if we should write PivotTables
+	 * @return 	string 				XML Output
+	 * @throws 	PHPExcel_Writer_Exception
+	 */
+	public function writeWorksheetRelationships(PHPExcel_Worksheet $pWorksheet = null, $pWorksheetId = 1, $includeCharts = false, $includePivotTables = false)
+	{
+		// Create XML writer
+		$objWriter = null;
+		if ($this->getParentWriter()->getUseDiskCaching()) {
+			$objWriter = new PHPExcel_Shared_XMLWriter(PHPExcel_Shared_XMLWriter::STORAGE_DISK, $this->getParentWriter()->getDiskCachingDirectory());
+		} else {
+			$objWriter = new PHPExcel_Shared_XMLWriter(PHPExcel_Shared_XMLWriter::STORAGE_MEMORY);
+		}
 
         // XML header
         $objWriter->startDocument('1.0', 'UTF-8', 'yes');
@@ -221,6 +244,22 @@ class PHPExcel_Writer_Excel2007_Rels extends PHPExcel_Writer_Excel2007_WriterPar
                 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/drawing',
                 '../drawings/drawing' . $pWorksheetId . '.xml'
             );
+        }
+
+        $pivotTables=null;
+        if($includePivotTables){
+            $pivotTables =  $pWorksheet->getPivotTableCollection();
+            if(count($pivotTables)>0){
+                foreach($pivotTables as $pivotTable){
+//                    var_dump($pivotTable->getId());
+                    $this->writeRelationship(
+                        $objWriter,
+                        $pivotTable->getId(),
+                        'http://schemas.openxmlformats.org/officeDocument/2006/relationships/pivotTable',
+                        $pivotTable->getTarget()
+                    );
+                }
+            }
         }
 
         // Write chart relationships?
@@ -350,6 +389,108 @@ class PHPExcel_Writer_Excel2007_Rels extends PHPExcel_Writer_Excel2007_WriterPar
 
         $objWriter->endElement();
 
+        // Return
+        return $objWriter->getData();
+    }
+
+    /**
+     * Write pivot table relationships to XML format
+     *
+     * @param 	PHPExcel_Worksheet	$pWorksheet
+     * @return 	string 				XML Output
+     * @throws 	PHPExcel_Writer_Exception
+     */
+    public function writePivotTableRelationships(PHPExcel_Worksheet $pWorksheet = null)
+    {
+        // Create XML writer
+        $objWriter = null;
+        if ($this->getParentWriter()->getUseDiskCaching()) {
+            $objWriter = new PHPExcel_Shared_XMLWriter(PHPExcel_Shared_XMLWriter::STORAGE_DISK, $this->getParentWriter()->getDiskCachingDirectory());
+        } else {
+            $objWriter = new PHPExcel_Shared_XMLWriter(PHPExcel_Shared_XMLWriter::STORAGE_MEMORY);
+        }
+
+        // XML header
+        $objWriter->startDocument('1.0','UTF-8','yes');
+
+        // Relationships
+        $objWriter->startElement('Relationships');
+        $objWriter->writeAttribute('xmlns', 'http://schemas.openxmlformats.org/package/2006/relationships');
+
+        // Loop through PivotTable relationships
+        $pivotTables = $pWorksheet->getPivotTableCollection();
+        if(count($pivotTables) > 0){
+            foreach($pivotTables as $pivotTable){
+                $pivotCacheDefinitions = $pivotTable->getPivotCacheDefinitionCollection();
+                if(count($pivotCacheDefinitions) > 0){
+                    foreach($pivotCacheDefinitions as $pivotCacheDefinition){
+                        $this->writeRelationship(
+                            $objWriter,
+                            $pivotCacheDefinition->getId(),
+                            'http://schemas.openxmlformats.org/officeDocument/2006/relationships/pivotCacheDefinition',
+                            $pivotCacheDefinition->getTarget()
+                        );
+                    }
+                }
+            }
+        }
+
+        $objWriter->endElement();
+
+        // Return
+        return $objWriter->getData();
+    }
+
+    /**
+     * Write pivot cache relationships to XML format
+     *
+     * @param 	PHPExcel_Worksheet	$pWorksheet
+     * @return 	string 				XML Output
+     * @throws 	PHPExcel_Writer_Exception
+     */
+    public function writePivotCacheRelationships(PHPExcel_Worksheet $pWorksheet = null)
+    {
+        // Create XML writer
+        $objWriter = null;
+        if ($this->getParentWriter()->getUseDiskCaching()) {
+            $objWriter = new PHPExcel_Shared_XMLWriter(PHPExcel_Shared_XMLWriter::STORAGE_DISK, $this->getParentWriter()->getDiskCachingDirectory());
+        } else {
+            $objWriter = new PHPExcel_Shared_XMLWriter(PHPExcel_Shared_XMLWriter::STORAGE_MEMORY);
+        }
+
+        // XML header
+        $objWriter->startDocument('1.0','UTF-8','yes');
+
+        // Relationships
+        $objWriter->startElement('Relationships');
+        $objWriter->writeAttribute('xmlns', 'http://schemas.openxmlformats.org/package/2006/relationships');
+
+        // Loop through PivotTable relationships
+        $pivotTables = $pWorksheet->getPivotTableCollection();
+        if(count($pivotTables) > 0){
+            foreach($pivotTables as $pivotTable){
+                $pivotCacheDefinitions = $pivotTable->getPivotCacheDefinitionCollection();
+                if(count($pivotCacheDefinitions) > 0){
+                    foreach($pivotCacheDefinitions as $pivotCacheDefinition){
+                        $pivotCacheRecordsCollection = $pivotCacheDefinition->getPivotCacheRecordsCollection();
+                        if(count($pivotCacheRecordsCollection) > 0){
+                            foreach($pivotCacheRecordsCollection as $pivotCacheRecords){
+                                $this->writeRelationship(
+                                    $objWriter,
+                                    $pivotCacheRecords->getId(),
+                                    'http://schemas.openxmlformats.org/officeDocument/2006/relationships/pivotCacheRecords',
+                                    $pivotCacheRecords->getTarget()
+                                );
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        $objWriter->endElement();
+
+        // Return
         return $objWriter->getData();
     }
 

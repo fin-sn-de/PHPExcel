@@ -309,7 +309,7 @@ class PHPExcel_Reader_Excel2007 extends PHPExcel_Reader_Abstract implements PHPE
 
         // Sadly, some 3rd party xlsx generators don't use consistent case for filenaming
         //    so we need to load case-insensitively from the zip file
-        
+
         // Apache POI fixes
         $contents = $archive->getFromIndex(
             $archive->locateName($fileName, ZIPARCHIVE::FL_NOCASE)
@@ -634,17 +634,17 @@ class PHPExcel_Reader_Excel2007 extends PHPExcel_Reader_Abstract implements PHPE
                             // They will differ if loadSheetsOnly() is being used
                             $mapSheetId[$oldSheetId] = $oldSheetId - $countSkippedSheets;
 
-                            // Load sheet
-                            $docSheet = $excel->createSheet();
-                            //    Use false for $updateFormulaCellReferences to prevent adjustment of worksheet
-                            //        references in formula cells... during the load, all formulae should be correct,
-                            //        and we're simply bringing the worksheet name in line with the formula, not the
-                            //        reverse
-                            $docSheet->setTitle((string) $eleSheet["name"], false);
-                            $fileWorksheet = $worksheets[(string) self::getArrayItem($eleSheet->attributes("http://schemas.openxmlformats.org/officeDocument/2006/relationships"), "id")];
-                            $xmlSheet = simplexml_load_string($this->securityScan($this->getFromZipArchive($zip, "$dir/$fileWorksheet")), 'SimpleXMLElement', PHPExcel_Settings::getLibXmlLoaderOptions());  //~ http://schemas.openxmlformats.org/spreadsheetml/2006/main");
+							// Load sheet
+							$docSheet = $excel->createSheet();
+							//	Use false for $updateFormulaCellReferences to prevent adjustment of worksheet
+							//		references in formula cells... during the load, all formulae should be correct,
+							//		and we're simply bringing the worksheet name in line with the formula, not the
+							//		reverse
+							$docSheet->setTitle((string) $eleSheet["name"],false);
+							$fileWorksheet = $worksheets[(string) self::getArrayItem($eleSheet->attributes("http://schemas.openxmlformats.org/officeDocument/2006/relationships"), "id")];
+							$xmlSheet = simplexml_load_string($this->securityScan($this->getFromZipArchive($zip, "$dir/$fileWorksheet")), 'SimpleXMLElement', PHPExcel_Settings::getLibXmlLoaderOptions());  //~ http://schemas.openxmlformats.org/spreadsheetml/2006/main");
 
-                            $sharedFormulas = array();
+							$sharedFormulas = array();
 
                             if (isset($eleSheet["state"]) && (string) $eleSheet["state"] != '') {
                                 $docSheet->setSheetState((string) $eleSheet["state"]);
@@ -731,18 +731,25 @@ class PHPExcel_Reader_Excel2007 extends PHPExcel_Reader_Abstract implements PHPE
                                 }
                             }
 
-                            if (isset($xmlSheet->sheetFormatPr)) {
-                                if (isset($xmlSheet->sheetFormatPr['customHeight']) &&
-                                    self::boolean((string) $xmlSheet->sheetFormatPr['customHeight']) &&
-                                    isset($xmlSheet->sheetFormatPr['defaultRowHeight'])) {
-                                    $docSheet->getDefaultRowDimension()->setRowHeight((float)$xmlSheet->sheetFormatPr['defaultRowHeight']);
-                                }
-                                if (isset($xmlSheet->sheetFormatPr['defaultColWidth'])) {
-                                    $docSheet->getDefaultColumnDimension()->setWidth((float)$xmlSheet->sheetFormatPr['defaultColWidth']);
-                                }
-                                if (isset($xmlSheet->sheetFormatPr['zeroHeight']) &&
-                                    ((string)$xmlSheet->sheetFormatPr['zeroHeight'] == '1')) {
-                                    $docSheet->getDefaultRowDimension()->setZeroHeight(true);
+							if (isset($xmlSheet->sheetFormatPr)) {
+								if (isset($xmlSheet->sheetFormatPr['customHeight']) &&
+									self::boolean((string) $xmlSheet->sheetFormatPr['customHeight']) &&
+									isset($xmlSheet->sheetFormatPr['defaultRowHeight'])) {
+									$docSheet->getDefaultRowDimension()->setRowHeight( (float)$xmlSheet->sheetFormatPr['defaultRowHeight'] );
+								}
+								if (isset($xmlSheet->sheetFormatPr['defaultColWidth'])) {
+									$docSheet->getDefaultColumnDimension()->setWidth( (float)$xmlSheet->sheetFormatPr['defaultColWidth'] );
+								}
+								if (isset($xmlSheet->sheetFormatPr['zeroHeight']) &&
+									((string)$xmlSheet->sheetFormatPr['zeroHeight'] == '1')) {
+									$docSheet->getDefaultRowDimension()->setZeroHeight(true);
+								}
+								// Pivot
+                                $namespaces = $xmlSheet->getNameSpaces(true);
+                                $x14ac = $xmlSheet->sheetFormatPr->attributes($namespaces['x14ac']);
+                                //var_dump((string)$x14ac['dyDescent']);
+                                if (isset($x14ac['dyDescent'])){
+                                  $docSheet->getDefaultRowDimension()->setX14ac((string)$x14ac['dyDescent']);
                                 }
                             }
 
@@ -806,6 +813,14 @@ class PHPExcel_Reader_Excel2007 extends PHPExcel_Reader_Abstract implements PHPE
                                     if ($row["s"] && !$this->readDataOnly) {
                                         $docSheet->getRowDimension(intval($row["r"]))->setXfIndex(intval($row["s"]));
                                     }
+
+                                    // Pivot
+                                      $namespaces = $xmlSheet->getNameSpaces(true);
+                                      $x14ac = $row->attributes($namespaces['x14ac']);
+//                                      var_dump((string)$x14ac['dyDescent']);
+                                      if (isset($x14ac['dyDescent'])){
+                                        $docSheet->getRowDimension(intval($row["r"]))->setX14ac((string)$x14ac['dyDescent']);
+                                      }
 
                                     foreach ($row->c as $c) {
                                         $r                     = (string) $c["r"];
@@ -1208,18 +1223,74 @@ class PHPExcel_Reader_Excel2007 extends PHPExcel_Reader_Abstract implements PHPE
                                 }
                             }
 
-                            // Add hyperlinks
-                            $hyperlinks = array();
-                            if (!$this->readDataOnly) {
-                                // Locate hyperlink relations
-                                if ($zip->locateName(dirname("$dir/$fileWorksheet") . "/_rels/" . basename($fileWorksheet) . ".rels")) {
-                                    $relsWorksheet = simplexml_load_string($this->securityScan($this->getFromZipArchive($zip, dirname("$dir/$fileWorksheet") . "/_rels/" . basename($fileWorksheet) . ".rels")), 'SimpleXMLElement', PHPExcel_Settings::getLibXmlLoaderOptions()); //~ http://schemas.openxmlformats.org/package/2006/relationships");
-                                    foreach ($relsWorksheet->Relationship as $ele) {
-                                        if ($ele["Type"] == "http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink") {
-                                            $hyperlinks[(string)$ele["Id"]] = (string)$ele["Target"];
-                                        }
-                                    }
+              // Add pivot table to worksheet
+              $pivotTable = array();
+              if (!$this->readDataOnly && $this->_includePivotTable) {
+                if ($zip->locateName(dirname("$dir/$fileWorksheet") . "/_rels/" . basename($fileWorksheet) . ".rels")) {
+									$relsWorksheet = simplexml_load_string($this->getFromZipArchive($zip,  dirname("$dir/$fileWorksheet") . "/_rels/" . basename($fileWorksheet) . ".rels") ); //~ http://schemas.openxmlformats.org/package/2006/relationships");
+									foreach ($relsWorksheet->Relationship as $ele) {
+										if ($ele["Type"] == "http://schemas.openxmlformats.org/officeDocument/2006/relationships/pivotTable") {
+                      $objPivotTable = new PHPExcel_PivotTable(
+                        (string)$ele["Id"],
+                        (string)$ele["Target"],
+                        $this->getFromZipArchive($zip,  dirname("$dir/$fileWorksheet") ."/" . (string)$ele["Target"])
+                      );
+//                      var_dump($objPivotTable->getName());
+
+                      $relsPivotTablePath = $dir . "/pivotTables/_rels/" . $objPivotTable->getName() . ".rels";
+                      //var_dump($relsPivotTablePath);
+                      if($zip->locateName($relsPivotTablePath)) {
+                        $relsPivotTable = simplexml_load_string($this->getFromZipArchive($zip, $relsPivotTablePath));
+                        foreach($relsPivotTable->Relationship as $elePT){
+                          if ($elePT["Type"] == "http://schemas.openxmlformats.org/officeDocument/2006/relationships/pivotCacheDefinition") {
+                            $objPivotCacheDefinition = new PHPExcel_PivotTable_PivotCacheDefinition(
+                              (string)$elePT["Id"],
+                              (string)$elePT["Target"],
+                              $this->getFromZipArchive($zip,  dirname("$dir/$fileWorksheet") ."/" . (string)$elePT["Target"])
+                            );
+//                            var_dump($objPivotCacheDefinition->getName());
+                            //var_dump($this->_getFromZipArchive($zip,  dirname("$dir/$fileWorksheet") ."/" . (string)$elePT["Target"]));
+
+							$relsPivotCachePath = $dir . "/pivotCache/_rels/" . $objPivotCacheDefinition->getName() . ".rels";
+                            //var_dump($relsPivotCachePath);
+                            if($zip->locateName($relsPivotCachePath)) {
+                              $relsPivotCache = simplexml_load_string($this->getFromZipArchive($zip, $relsPivotCachePath));
+                              foreach($relsPivotCache->Relationship as $elePC){
+                                if ($elePC["Type"] == "http://schemas.openxmlformats.org/officeDocument/2006/relationships/pivotCacheRecords") {
+                                  $objPivotCacheRecords = new PHPExcel_PivotTable_PivotCacheDefinition_PivotCacheRecords(
+                                    (string)$elePC["Id"],
+                                    (string)$elePC["Target"],
+                                    $this->getFromZipArchive($zip,  dirname("$dir/$fileWorksheet"). "/" . dirname((string)$elePT["Target"]) ."/" . (string)$elePC["Target"])
+                                  );
+//                                  var_dump($objPivotCacheRecords->getName());
+                                  //var_dump(dirname("$dir/$fileWorksheet"). "/" . dirname((string)$elePT["Target"]) ."/" . (string)$elePC["Target"]);
                                 }
+                                $objPivotCacheDefinition->addPivotCacheRecords($objPivotCacheRecords);
+                              }
+                            }
+                          }
+                          $objPivotTable->addPivotCacheDefinition($objPivotCacheDefinition);
+                        }
+                      }
+                      //var_dump($objPivotTable);
+                      $docSheet->addPivotTable($objPivotTable);
+
+//                echo EOL;
+										}
+									}
+								}
+              }// Add hyperlinks
+							$hyperlinks = array();
+							if (!$this->readDataOnly) {
+								// Locate hyperlink relations
+								if ($zip->locateName(dirname("$dir/$fileWorksheet") . "/_rels/" . basename($fileWorksheet) . ".rels")) {
+									$relsWorksheet = simplexml_load_string($this->securityScan($this->getFromZipArchive($zip,  dirname("$dir/$fileWorksheet") . "/_rels/" . basename($fileWorksheet) . ".rels") ), 'SimpleXMLElement', PHPExcel_Settings::getLibXmlLoaderOptions()); //~ http://schemas.openxmlformats.org/package/2006/relationships");
+									foreach ($relsWorksheet->Relationship as $ele) {
+										if ($ele["Type"] == "http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink") {
+											$hyperlinks[(string)$ele["Id"]] = (string)$ele["Target"];
+										}
+									}
+								}
 
                                 // Loop through hyperlinks
                                 if ($xmlSheet && $xmlSheet->hyperlinks) {
@@ -1720,16 +1791,44 @@ class PHPExcel_Reader_Excel2007 extends PHPExcel_Reader_Abstract implements PHPE
                                 if (isset($chartDetails[$chartPositionRef])) {
 //                                    var_dump($chartDetails[$chartPositionRef]);
 
-                                    $excel->getSheetByName($charts[$chartEntryRef]['sheet'])->addChart($objChart);
-                                    $objChart->setWorksheet($excel->getSheetByName($charts[$chartEntryRef]['sheet']));
-                                    $objChart->setTopLeftPosition($chartDetails[$chartPositionRef]['fromCoordinate'], $chartDetails[$chartPositionRef]['fromOffsetX'], $chartDetails[$chartPositionRef]['fromOffsetY']);
-                                    $objChart->setBottomRightPosition($chartDetails[$chartPositionRef]['toCoordinate'], $chartDetails[$chartPositionRef]['toOffsetX'], $chartDetails[$chartPositionRef]['toOffsetY']);
-                                }
-                            }
-                        }
+									$excel->getSheetByName($charts[$chartEntryRef]['sheet'])->addChart($objChart);
+									$objChart->setWorksheet($excel->getSheetByName($charts[$chartEntryRef]['sheet']));
+									$objChart->setTopLeftPosition( $chartDetails[$chartPositionRef]['fromCoordinate'],
+																   $chartDetails[$chartPositionRef]['fromOffsetX'],
+																   $chartDetails[$chartPositionRef]['fromOffsetY']);
+
+									$objChart->setBottomRightPosition( $chartDetails[$chartPositionRef]['toCoordinate'],
+																	   $chartDetails[$chartPositionRef]['toOffsetX'],
+																	   $chartDetails[$chartPositionRef]['toOffsetY']);
+																	 }
+								}
+							}
+                        break;
+        // 				  case "application/vnd.openxmlformats-officedocument.spreadsheetml.pivotCacheDefinition+xml":
+        //             if ($this->_includePivotTable) {
+        //               $pivotCacheDefinitionEntryRef = ltrim($contentType['PartName'],'/');
+        // 							$pivotCacheDefinitionElements = simplexml_load_string($this->_getFromZipArchive($zip, $pivotCacheDefinitionEntryRef));
+        // 							$objPivotCacheDefinition = PHPExcel_Reader_Excel2007_PivotCacheDefinition::readPivotCacheDefinition($pivotCacheDefinitionElements,basename($pivotCacheDefinitionEntryRef,'.xml'));
+        //             }
+        //           break;
+        //           case "application/vnd.openxmlformats-officedocument.spreadsheetml.pivotTable+xml":
+        //             if ($this->_includePivotTable) {
+        //               $pivotTableEntryRef = ltrim($contentType['PartName'],'/');
+        // 							$pivotTableElements = simplexml_load_string($this->_getFromZipArchive($zip, $pivotTableEntryRef));
+        // 							$objPivotTable = PHPExcel_Reader_Excel2007_PivotTable::readPivotTable($pivotTableElements,basename($pivotTableEntryRef,'.xml'));
+        //             }
+        //           break;
+        //           case "application/vnd.openxmlformats-officedocument.spreadsheetml.pivotCacheRecords+xml":
+        //             if ($this->_includePivotTable) {
+        //               $pivotCacheRecordsEntryRef = ltrim($contentType['PartName'],'/');
+        // 							$pivotCacheRecordsElements = simplexml_load_string($this->_getFromZipArchive($zip, $pivotCacheRecordsEntryRef));
+        // 							$objPivotCacheRecords = PHPExcel_Reader_Excel2007_PivotCacheRecords::readPivotCacheRecords($pivotCacheRecordsElements,basename($pivotCacheRecordsEntryRef,'.xml'));
+        //             }
+        //           break;
                 }
             }
         }
+
 
         $zip->close();
 
