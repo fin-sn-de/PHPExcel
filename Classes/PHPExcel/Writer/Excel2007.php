@@ -292,7 +292,7 @@ class PHPExcel_Writer_Excel2007 extends PHPExcel_Writer_Abstract implements PHPE
             $chartCount = 0;
             // Add worksheets
             for ($i = 0; $i < $this->spreadSheet->getSheetCount(); ++$i) {
-                $objZip->addFromString('xl/worksheets/sheet' . ($i + 1) . '.xml', $this->getWriterPart('Worksheet')->writeWorksheet($this->spreadSheet->getSheet($i), $this->stringTable, $this->includeCharts));
+                $objZip->addFromString('xl/worksheets/sheet' . ($i + 1) . '.xml', $this->getWriterPart('Worksheet')->writeWorksheet($this->spreadSheet->getSheet($i), $this->stringTable, $this->includeCharts, $this->_includePivotTable));
                 if ($this->includeCharts) {
                     $charts = $this->spreadSheet->getSheet($i)->getChartCollection();
                     if (count($charts) > 0) {
@@ -355,7 +355,7 @@ class PHPExcel_Writer_Excel2007 extends PHPExcel_Writer_Abstract implements PHPE
             // Add worksheet relationships (drawings, ...)
             for ($i = 0; $i < $this->spreadSheet->getSheetCount(); ++$i) {
                 // Add relationships
-                $objZip->addFromString('xl/worksheets/_rels/sheet' . ($i + 1) . '.xml.rels', $this->getWriterPart('Rels')->writeWorksheetRelationships($this->spreadSheet->getSheet($i), ($i + 1), $this->includeCharts));
+                $objZip->addFromString('xl/worksheets/_rels/sheet' . ($i + 1) . '.xml.rels', $this->getWriterPart('Rels')->writeWorksheetRelationships($this->spreadSheet->getSheet($i), ($i + 1), $this->includeCharts, $this->_includePivotTable));
 
                 $drawings = $this->spreadSheet->getSheet($i)->getDrawingCollection();
                 $drawingCount = count($drawings);

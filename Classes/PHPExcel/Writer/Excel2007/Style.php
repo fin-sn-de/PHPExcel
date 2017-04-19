@@ -52,6 +52,12 @@ class PHPExcel_Writer_Excel2007_Style extends PHPExcel_Writer_Excel2007_WriterPa
         $objWriter->writeAttribute('xml:space', 'preserve');
         $objWriter->writeAttribute('xmlns', 'http://schemas.openxmlformats.org/spreadsheetml/2006/main');
 
+        if($pPHPExcel->getPivotFixedDxfs()) {
+            $objWriter->writeAttribute('xmlns:mc', 'http://schemas.openxmlformats.org/markup-compatibility/2006');
+            $objWriter->writeAttribute('mc:Ignorable', 'x14ac');
+            $objWriter->writeAttribute('xmlns:x14ac', 'http://schemas.microsoft.com/office/spreadsheetml/2009/9/ac');
+        }
+
         // numFmts
         $objWriter->startElement('numFmts');
         $objWriter->writeAttribute('count', $this->getParentWriter()->getNumFmtHashTable()->count());
@@ -134,13 +140,24 @@ class PHPExcel_Writer_Excel2007_Style extends PHPExcel_Writer_Excel2007_WriterPa
 
         $objWriter->endElement();
 
-        // dxfs
-        $objWriter->startElement('dxfs');
-        $objWriter->writeAttribute('count', $this->getParentWriter()->getStylesConditionalHashTable()->count());
+        if ($pPHPExcel->getPivotFixedDxfs()) {
+            // dxfs
+            $objWriter->startElement('dxfs');
+            $objWriter->writeAttribute('count', count($pPHPExcel->getPivotFixedDxfs()));
 
-        // dxf
-        for ($i = 0; $i < $this->getParentWriter()->getStylesConditionalHashTable()->count(); ++$i) {
-            $this->writeCellStyleDxf($objWriter, $this->getParentWriter()->getStylesConditionalHashTable()->getByIndex($i)->getStyle());
+            // dxf
+            foreach ($pPHPExcel->getPivotFixedDxfs() as $dxf) {
+                $this->writeCellStyleDxf($objWriter, $dxf);
+            }
+        } else {
+            // dxfs
+            $objWriter->startElement('dxfs');
+            $objWriter->writeAttribute('count', $this->getParentWriter()->getStylesConditionalHashTable()->count());
+
+            // dxf
+            for ($i = 0; $i < $this->getParentWriter()->getStylesConditionalHashTable()->count(); ++$i) {
+                $this->writeCellStyleDxf($objWriter, $this->getParentWriter()->getStylesConditionalHashTable()->getByIndex($i)->getStyle());
+            }
         }
 
         $objWriter->endElement();

@@ -745,11 +745,13 @@ class PHPExcel_Reader_Excel2007 extends PHPExcel_Reader_Abstract implements PHPE
 									$docSheet->getDefaultRowDimension()->setZeroHeight(true);
 								}
 								// Pivot
-                                $namespaces = $xmlSheet->getNameSpaces(true);
-                                $x14ac = $xmlSheet->sheetFormatPr->attributes($namespaces['x14ac']);
-                                //var_dump((string)$x14ac['dyDescent']);
-                                if (isset($x14ac['dyDescent'])){
-                                  $docSheet->getDefaultRowDimension()->setX14ac((string)$x14ac['dyDescent']);
+                                $namespaces = $xmlSheet->getDocNamespaces(true);
+								if (isset($namespaces['x14ac'])) {
+                                    $x14ac = $xmlSheet->sheetFormatPr->attributes($namespaces['x14ac']);
+                                    //var_dump((string)$x14ac['dyDescent']);
+                                    if (isset($x14ac['dyDescent'])){
+                                      $docSheet->getDefaultRowDimension()->setX14ac((string)$x14ac['dyDescent']);
+                                    }
                                 }
                             }
 
@@ -815,12 +817,14 @@ class PHPExcel_Reader_Excel2007 extends PHPExcel_Reader_Abstract implements PHPE
                                     }
 
                                     // Pivot
-                                      $namespaces = $xmlSheet->getNameSpaces(true);
+                                      $namespaces = $xmlSheet->getDocNamespaces(true);
+                                    if (isset($namespaces['x14ac'])) {
                                       $x14ac = $row->attributes($namespaces['x14ac']);
 //                                      var_dump((string)$x14ac['dyDescent']);
                                       if (isset($x14ac['dyDescent'])){
                                         $docSheet->getRowDimension(intval($row["r"]))->setX14ac((string)$x14ac['dyDescent']);
                                       }
+                                    }
 
                                     foreach ($row->c as $c) {
                                         $r                     = (string) $c["r"];
@@ -1832,6 +1836,9 @@ class PHPExcel_Reader_Excel2007 extends PHPExcel_Reader_Abstract implements PHPE
 
         $zip->close();
 
+        if ($this->_includePivotTable && $dxfs) {
+            $excel->setPivotFixedDxfs($dxfs);
+        }
         return $excel;
     }
 

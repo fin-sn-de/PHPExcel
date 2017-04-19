@@ -229,6 +229,22 @@ class PHPExcel_Writer_Excel2007_Rels extends PHPExcel_Writer_Excel2007_WriterPar
         $objWriter->startElement('Relationships');
         $objWriter->writeAttribute('xmlns', 'http://schemas.openxmlformats.org/package/2006/relationships');
 
+
+
+        $pivotTables=null;
+        if($includePivotTables){
+            $pivotTables =  $pWorksheet->getPivotTableCollection();
+            if(count($pivotTables)>0){
+                foreach($pivotTables as $pivotTable){
+                    $this->writeRelationship(
+                        $objWriter,
+                        '_pivot_' . $pivotTable->getId(),
+                        'http://schemas.openxmlformats.org/officeDocument/2006/relationships/pivotTable',
+                        $pivotTable->getTarget()
+                    );
+                }
+            }
+        }
         // Write drawing relationships?
         $d = 0;
         if ($includeCharts) {
@@ -246,21 +262,6 @@ class PHPExcel_Writer_Excel2007_Rels extends PHPExcel_Writer_Excel2007_WriterPar
             );
         }
 
-        $pivotTables=null;
-        if($includePivotTables){
-            $pivotTables =  $pWorksheet->getPivotTableCollection();
-            if(count($pivotTables)>0){
-                foreach($pivotTables as $pivotTable){
-//                    var_dump($pivotTable->getId());
-                    $this->writeRelationship(
-                        $objWriter,
-                        $pivotTable->getId(),
-                        'http://schemas.openxmlformats.org/officeDocument/2006/relationships/pivotTable',
-                        $pivotTable->getTarget()
-                    );
-                }
-            }
-        }
 
         // Write chart relationships?
 //            $chartCount = 0;

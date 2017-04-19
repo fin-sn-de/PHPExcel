@@ -139,6 +139,30 @@ class PHPExcel
     private $ribbonBinObjects;
 
     /**
+     * @var PHPExcel_Style[]
+     */
+    private $pivotFixedDxfs = [];
+
+    /**
+     * @return PHPExcel_Style[]
+     */
+    public function getPivotFixedDxfs()
+    {
+        return $this->pivotFixedDxfs;
+    }
+
+    /**
+     * @param PHPExcel_Style[] $pivotFixedDxfs
+     * @return PHPExcel
+     */
+    public function setPivotFixedDxfs(array $pivotFixedDxfs)
+    {
+        $this->pivotFixedDxfs = $pivotFixedDxfs;
+        return $this;
+    }
+
+
+    /**
     * The workbook has macros ?
     *
     * @return boolean true if workbook has macros, false if not

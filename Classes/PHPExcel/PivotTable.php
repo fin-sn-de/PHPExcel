@@ -84,7 +84,8 @@ class PHPExcel_PivotTable
     $this->setId($id);
     $this->setTarget($target);
     // patch to correct  dxfId="XX"
-    $this->_data = preg_replace("/ dxfId=\"..\"/i","",$xmlData);
+//    $this->_data = preg_replace("/ dxfId=\"..\"/i","",$xmlData);
+        $this->_data = $xmlData;
   }
   
   public function setId($id){       
